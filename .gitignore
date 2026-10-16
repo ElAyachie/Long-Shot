@@ -56,3 +56,8 @@ Icon?
 ehthumbs.db
 Thumbs.db
 
+
+# Unity 6 per-user and generated editor files
+[Uu]ser[Ss]ettings/
+*.slnx
+.vscode/
