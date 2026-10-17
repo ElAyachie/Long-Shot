@@ -61,3 +61,19 @@ Thumbs.db
 [Uu]ser[Ss]ettings/
 *.slnx
 .vscode/
+
+# Visual Studio's per-user cache
+.vs/
+
+# Build outputs
+*.apk
+*.aab
+
+# Signing keys and secrets. Release builds are signed by the GitHub release workflow from
+# repository secrets; keys never belong in the repository. To build a signed APK in the editor,
+# put the release keystore at Long-Shot/user.keystore (ignored here).
+*.keystore
+*.jks
+*.p12
+*.pem
+.env

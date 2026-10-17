@@ -2,7 +2,9 @@
 
 Score from your own half. Aim past a line of defenders, bank shots off the boards, bend them around a goalkeeper, and see how far you get before someone gets a foot to it.
 
-**[Play it in your browser](https://mohamedoulal.vercel.app/projects/LongShot)**
+**[Play it in your browser](https://mohamedoulal.vercel.app/projects/LongShot)** or **[download it for Android](https://github.com/ElAyachie/Long-Shot/releases/latest/download/LongShot.apk)** (Android 6.0 or newer; every version is on the [Releases page](https://github.com/ElAyachie/Long-Shot/releases)).
+
+The APK isn't installed from Google Play, so Android will ask you to allow installs from your browser the first time. Each release also has `LongShot.apk.sha256`, the file's SHA-256 checksum, if you want to check the download.
 
 Long Shot started as a one-tap game I made in college. In 2026 it was rebuilt on Unity 6 with aimed shots, physics, progression and a lot more polish, keeping the original sprites and sounds.
 
@@ -46,4 +48,20 @@ The browser version is built from **Long Shot > Build WebGL** (`Assets/Editor/We
 
 On some Windows machines Emscripten's optimizer crashes when it runs multithreaded. If the build fails while linking, set the environment variable `BINARYEN_CORES=1` before starting Unity and build again.
 
-The original version is on [Google Play](https://play.google.com/store/apps/details?id=com.EyachiCorps.LongShotSimulator).
+### Android releases
+
+Android releases are built and signed by GitHub Actions (`.github/workflows/release.yml`, using [GameCI](https://game.ci)); no signing key is kept in the repository. To publish a version, push a tag such as `git tag v2.0.0 && git push origin v2.0.0`, or run **Release APK** from the Actions tab. The version name and code come from the tag.
+
+The workflow needs these repository secrets (Settings > Secrets and variables > Actions):
+
+| Secret | |
+| --- | --- |
+| `UNITY_LICENSE` | The contents of your Unity license file (`C:\ProgramData\Unity\Unity_lic.ulf` on Windows after signing in to Unity Hub) |
+| `UNITY_EMAIL`, `UNITY_PASSWORD` | Your Unity account |
+| `ANDROID_KEYSTORE_BASE64` | The release keystore, base64-encoded |
+| `ANDROID_KEYSTORE_PASSWORD` | Its password |
+| `ANDROID_KEY_ALIAS` | Optional, defaults to `release` |
+
+To build a signed APK in the editor instead, put the release keystore at `Long-Shot/user.keystore` (Git ignores it) and enter its password under Player Settings > Publishing Settings.
+
+The original version of the game was on Google Play.
