@@ -1,0 +1,119 @@
+name: Release APK
+
+# Builds the Android version of Long Shot with Unity (through GameCI), signs it, and publishes it
+# with its SHA-256 checksum as a GitHub release. The portfolio's download button points at the
+# newest release's LongShot.apk.
+#
+# To publish a version, push a tag:   git tag v2.0.0 && git push origin v2.0.0
+# or run this workflow from the Actions tab and give it the tag to publish. The app's version
+# name and version code are worked out from the tag and the commit count.
+#
+# Needs these repository secrets (Settings > Secrets and variables > Actions):
+#   UNITY_LICENSE              contents of your Unity license file (Unity_lic.ulf)
+#   UNITY_EMAIL                your Unity account email
+#   UNITY_PASSWORD             your Unity account password
+#   ANDROID_KEYSTORE_BASE64    the release keystore, base64-encoded
+#   ANDROID_KEYSTORE_PASSWORD  its password (also used as the key's password)
+#   ANDROID_KEY_ALIAS          optional; defaults to "release"
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag to publish, such as v2.0.0. Created on the selected branch if it doesn't exist."
+        required: true
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ inputs.tag || github.ref_name }}
+
+env:
+  TAG: ${{ inputs.tag || github.ref_name }}
+  APK: LongShot
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check the secrets are set
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+        run: |
+          missing=""
+          for name in UNITY_LICENSE UNITY_EMAIL UNITY_PASSWORD ANDROID_KEYSTORE_BASE64 ANDROID_KEYSTORE_PASSWORD; do
+            [ -z "${!name}" ] && missing="$missing $name"
+          done
+          if [ -n "$missing" ]; then
+            echo "::error::These repository secrets are not set:$missing. See Releases in README.md."
+            exit 1
+          fi
+
+      # The Unity Android image is large; make room for it on the runner.
+      - uses: jlumbroso/free-disk-space@v1.3.1
+        with:
+          tool-cache: false
+
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/cache@v4
+        with:
+          path: Long-Shot/Library
+          key: Library-Android-${{ hashFiles('Long-Shot/Assets/**', 'Long-Shot/Packages/**', 'Long-Shot/ProjectSettings/**') }}
+          restore-keys: Library-Android-
+
+      - name: Build the Android APK
+        uses: game-ci/unity-builder@v4
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+        with:
+          projectPath: Long-Shot
+          targetPlatform: Android
+          buildName: ${{ env.APK }}
+          versioning: Semantic
+          androidExportType: androidPackage
+          androidKeystoreName: user.keystore
+          androidKeystoreBase64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          androidKeystorePass: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          androidKeyaliasName: ${{ secrets.ANDROID_KEY_ALIAS || 'release' }}
+          androidKeyaliasPass: ${{ secrets.ANDROID_KEY_PASSWORD || secrets.ANDROID_KEYSTORE_PASSWORD }}
+
+      - name: Write the checksum
+        run: |
+          built=$(find build/Android -name '*.apk' | head -n 1)
+          if [ -z "$built" ]; then
+            echo "::error::Unity didn't produce an APK."
+            ls -R build || true
+            exit 1
+          fi
+          sudo cp "$built" "$APK.apk"
+          sudo chown "$(id -u):$(id -g)" "$APK.apk"
+          sha256sum "$APK.apk" > "$APK.apk.sha256"
+          cat "$APK.apk.sha256"
+
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "$TAG" > /dev/null 2>&1; then
+            gh release upload "$TAG" "$APK.apk" "$APK.apk.sha256" --clobber
+          else
+            gh release create "$TAG" "$APK.apk" "$APK.apk.sha256" \
+              --target "$GITHUB_SHA" \
+              --title "Long Shot $TAG" \
+              --generate-notes \
+              --notes "**Install:** open this page on your Android phone (Android 6.0 or newer) and tap **$APK.apk**. The game isn't installed from Google Play, so Android will ask you to allow installs from your browser first. You can also [play it in your browser](https://mohamedoulal.vercel.app/projects/LongShot).
+
+          **Check the download (optional):** the SHA-256 of $APK.apk is in $APK.apk.sha256. On a computer, compare it with \`sha256sum $APK.apk\` (macOS/Linux) or \`Get-FileHash $APK.apk\` (Windows)."
+          fi
